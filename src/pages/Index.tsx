@@ -1,7 +1,9 @@
+
 import { useState, useEffect } from 'react';
-import { Plus, Filter, Search, Bell, Settings, Share2, Menu, X } from 'lucide-react';
+import { Plus, Search, Bell, Settings, Share2, Menu, X, Clock, Sun, Moon, Lock, LogOut, Filter, Calendar, AlertTriangle, CheckCircle, List, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { TaskCard } from '@/components/TaskCard';
 import { TaskForm } from '@/components/TaskForm';
 import { FilterSidebar } from '@/components/FilterSidebar';
@@ -35,6 +37,9 @@ const Index = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState('john.doe@example.com');
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const { toast } = useToast();
 
   // Mock data
@@ -88,6 +93,11 @@ const Index = () => {
       task.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Hide completed tasks by default on mobile unless toggled
+    if (!showCompleted) {
+      filtered = filtered.filter(task => task.status !== 'completed');
+    }
+
     switch (activeFilter) {
       case 'today':
         const today = new Date().toISOString().split('T')[0];
@@ -108,7 +118,7 @@ const Index = () => {
         break;
     }
 
-    // Sort by priority (high first) and then by due date for mobile
+    // Sort by priority (high first) and then by due date (earliest first)
     filtered.sort((a, b) => {
       const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
       if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
@@ -118,7 +128,7 @@ const Index = () => {
     });
 
     setFilteredTasks(filtered);
-  }, [tasks, searchQuery, activeFilter]);
+  }, [tasks, searchQuery, activeFilter, showCompleted]);
 
   const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'createdBy'>) => {
     const newTask: Task = {
@@ -132,6 +142,29 @@ const Index = () => {
     toast({
       title: "Task created successfully!",
       description: "Your new task has been added to your list.",
+    });
+  };
+
+  const handleQuickCreateTask = () => {
+    if (!quickTaskTitle.trim()) return;
+    
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title: quickTaskTitle,
+      description: '',
+      status: 'todo',
+      priority: 'medium',
+      dueDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser,
+      tags: []
+    };
+    
+    setTasks(prev => [newTask, ...prev]);
+    setQuickTaskTitle('');
+    toast({
+      title: "Task created!",
+      description: "Your task has been added to your list.",
     });
   };
 
@@ -167,17 +200,26 @@ const Index = () => {
 
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
-    setShowMobileMenu(false); // Close mobile menu when filter is selected
+    setShowMobileMenu(false);
   };
+
+  const getTaskCounts = () => ({
+    all: tasks.length,
+    today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
+    overdue: tasks.filter(t => t.dueDate < new Date().toISOString().split('T')[0] && t.status !== 'completed').length,
+    'high-priority': tasks.filter(t => t.priority === 'high').length,
+    shared: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
+    completed: tasks.filter(t => t.status === 'completed').length
+  });
 
   if (!isAuthenticated) {
     return <AuthModal onAuthenticated={() => setIsAuthenticated(true)} />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-40">
+      <header className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white/80 backdrop-blur-sm border-slate-200'} border-b sticky top-0 z-40`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
@@ -186,23 +228,23 @@ const Index = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowMobileMenu(true)}
-                className="lg:hidden text-slate-600 hover:text-slate-900"
+                className={`lg:hidden ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 <Menu className="h-5 w-5" />
               </Button>
               
-              <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className={`text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent`}>
                 TaskFlow
               </h1>
               
               <div className="hidden md:flex items-center space-x-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                  <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'} h-4 w-4`} />
                   <Input
                     placeholder="Search tasks..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-64 bg-slate-50 border-slate-200"
+                    className={`pl-10 w-64 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-slate-50 border-slate-200'}`}
                   />
                 </div>
               </div>
@@ -212,12 +254,12 @@ const Index = () => {
               {/* Mobile Search */}
               <div className="md:hidden flex-1 max-w-xs">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                  <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'} h-4 w-4`} />
                   <Input
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 text-sm bg-slate-50 border-slate-200"
+                    className={`pl-10 text-sm ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-slate-50 border-slate-200'}`}
                   />
                 </div>
               </div>
@@ -226,7 +268,7 @@ const Index = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowFilters(!showFilters)}
-                className="hidden lg:flex text-slate-600 hover:text-slate-900"
+                className={`hidden lg:flex ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 <Filter className="h-5 w-5" />
               </Button>
@@ -234,9 +276,9 @@ const Index = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-slate-600 hover:text-slate-900"
+                className={isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}
               >
-                <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
+                <Clock className="h-4 w-4 lg:h-5 lg:w-5" />
               </Button>
               
               <Button
@@ -253,35 +295,120 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Mobile Filter Menu Overlay */}
+      {/* Mobile Slide-In Menu */}
       {showMobileMenu && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowMobileMenu(false)} />
-          <div className="fixed left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-xl">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold text-slate-900">Filters</h2>
+          <div className={`fixed left-0 top-0 h-full w-full ${isDarkMode ? 'bg-gray-800' : 'bg-white'} shadow-xl overflow-y-auto`}>
+            <div className={`flex items-center justify-between p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+              <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Menu</h2>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowMobileMenu(false)}
+                className={isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
-            <div className="p-4">
-              <FilterSidebar
-                activeFilter={activeFilter}
-                onFilterChange={handleFilterChange}
-                taskCounts={{
-                  all: tasks.length,
-                  today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
-                  overdue: tasks.filter(t => t.dueDate < new Date().toISOString().split('T')[0] && t.status !== 'completed').length,
-                  'high-priority': tasks.filter(t => t.priority === 'high').length,
-                  shared: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
-                  completed: tasks.filter(t => t.status === 'completed').length
-                }}
-                className="w-full"
-              />
+            
+            <div className="p-4 space-y-6">
+              {/* Filters Section */}
+              <div>
+                <h3 className={`text-md font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Filters</h3>
+                <div className="space-y-2">
+                  {[
+                    { id: 'all', label: 'All Tasks', icon: List, count: getTaskCounts().all },
+                    { id: 'today', label: 'Due Today', icon: Calendar, count: getTaskCounts().today },
+                    { id: 'overdue', label: 'Overdue', icon: Clock, count: getTaskCounts().overdue },
+                    { id: 'high-priority', label: 'High Priority', icon: AlertTriangle, count: getTaskCounts()['high-priority'] },
+                    { id: 'shared', label: 'Shared Tasks', icon: Users, count: getTaskCounts().shared },
+                  ].map((filter) => {
+                    const Icon = filter.icon;
+                    const isActive = activeFilter === filter.id;
+                    
+                    return (
+                      <button
+                        key={filter.id}
+                        onClick={() => handleFilterChange(filter.id)}
+                        className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${
+                          isActive
+                            ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-900'
+                            : isDarkMode 
+                              ? 'hover:bg-gray-700 text-gray-300 hover:text-white'
+                              : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Icon className="h-5 w-5" />
+                          <span className="font-medium">{filter.label}</span>
+                        </div>
+                        <span className={`text-sm px-2 py-1 rounded-full min-w-[24px] text-center font-medium ${
+                          isActive 
+                            ? 'bg-blue-100 text-blue-700' 
+                            : isDarkMode
+                              ? 'bg-gray-600 text-gray-300'
+                              : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {filter.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Toggles Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <CheckCircle className={`h-5 w-5 ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`} />
+                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Show Completed Tasks</span>
+                  </div>
+                  <Switch
+                    checked={showCompleted}
+                    onCheckedChange={setShowCompleted}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {isDarkMode ? <Sun className="h-5 w-5 text-gray-300" /> : <Moon className="h-5 w-5 text-slate-600" />}
+                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Dark Mode</span>
+                  </div>
+                  <Switch
+                    checked={isDarkMode}
+                    onCheckedChange={setIsDarkMode}
+                  />
+                </div>
+              </div>
+
+              {/* Settings Section */}
+              <div>
+                <h3 className={`text-md font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Settings</h3>
+                <div className="space-y-2">
+                  <button className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
+                    isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
+                  }`}>
+                    <Lock className="h-5 w-5" />
+                    <span>Change Password</span>
+                  </button>
+                  
+                  <button className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
+                    isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
+                  }`}>
+                    <Bell className="h-5 w-5" />
+                    <span>Notification Preferences</span>
+                  </button>
+                  
+                  <button className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
+                    isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-slate-50 text-red-600'
+                  }`}>
+                    <LogOut className="h-5 w-5" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -293,26 +420,20 @@ const Index = () => {
           <FilterSidebar
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
-            taskCounts={{
-              all: tasks.length,
-              today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
-              overdue: tasks.filter(t => t.dueDate < new Date().toISOString().split('T')[0] && t.status !== 'completed').length,
-              'high-priority': tasks.filter(t => t.priority === 'high').length,
-              shared: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
-              completed: tasks.filter(t => t.status === 'completed').length
-            }}
+            taskCounts={getTaskCounts()}
             className={`${showFilters ? 'block' : 'hidden'} lg:block`}
+            isDarkMode={isDarkMode}
           />
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Stats - Hidden on mobile, visible on desktop */}
+            {/* Desktop Stats */}
             <div className="hidden lg:grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} rounded-xl p-6 shadow-sm border`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Total Tasks</p>
-                    <p className="text-2xl font-bold text-slate-900">{tasks.length}</p>
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Total Tasks</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{tasks.length}</p>
                   </div>
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                     <div className="w-6 h-6 bg-blue-600 rounded-md"></div>
@@ -320,11 +441,11 @@ const Index = () => {
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} rounded-xl p-6 shadow-sm border`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">In Progress</p>
-                    <p className="text-2xl font-bold text-slate-900">
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>In Progress</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                       {tasks.filter(t => t.status === 'in-progress').length}
                     </p>
                   </div>
@@ -334,11 +455,11 @@ const Index = () => {
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} rounded-xl p-6 shadow-sm border`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Completed</p>
-                    <p className="text-2xl font-bold text-slate-900">
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Completed Tasks</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                       {tasks.filter(t => t.status === 'completed').length}
                     </p>
                   </div>
@@ -348,11 +469,11 @@ const Index = () => {
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+              <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} rounded-xl p-6 shadow-sm border`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-slate-600">Shared</p>
-                    <p className="text-2xl font-bold text-slate-900">
+                    <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Shared Tasks</p>
+                    <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                       {tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length}
                     </p>
                   </div>
@@ -366,29 +487,31 @@ const Index = () => {
             {/* Mobile Filter Info */}
             <div className="lg:hidden mb-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                   {activeFilter === 'all' ? 'All Tasks' : 
                    activeFilter === 'today' ? 'Due Today' :
                    activeFilter === 'overdue' ? 'Overdue' :
                    activeFilter === 'high-priority' ? 'High Priority' :
-                   activeFilter === 'shared' ? 'Shared with Me' :
-                   activeFilter === 'completed' ? 'Completed' : 'Tasks'}
+                   activeFilter === 'shared' ? 'Shared Tasks' :
+                   activeFilter === 'completed' ? 'Completed Tasks' : 'Tasks'}
                 </h2>
-                <span className="text-sm text-slate-500">
+                <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
                   {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
                 </span>
               </div>
             </div>
 
             {/* Task List */}
-            <div className="space-y-3 lg:space-y-4">
+            <div className="space-y-3 lg:space-y-4 pb-20 lg:pb-0">
               {filteredTasks.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Plus className="w-6 h-6 lg:w-8 lg:h-8 text-slate-400" />
+                  <div className={`w-20 h-20 lg:w-24 lg:h-24 ${isDarkMode ? 'bg-gray-700' : 'bg-slate-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                    <Plus className={`w-6 h-6 lg:w-8 lg:h-8 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'}`} />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-2">No tasks found</h3>
-                  <p className="text-slate-600 mb-4">Get started by creating your first task</p>
+                  <h3 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'} mb-2`}>No tasks here!</h3>
+                  <p className={`${isDarkMode ? 'text-gray-400' : 'text-slate-600'} mb-4`}>
+                    {activeFilter === 'all' ? 'Get started by creating your first task' : 'No tasks match this filter'}
+                  </p>
                   <Button
                     onClick={() => setShowTaskForm(true)}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
@@ -412,6 +535,28 @@ const Index = () => {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Quick Add Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-lg">
+        <div className="flex items-center space-x-2">
+          <div className="flex-1 relative">
+            <Input
+              placeholder="Quick add task..."
+              value={quickTaskTitle}
+              onChange={(e) => setQuickTaskTitle(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleQuickCreateTask()}
+              className="pr-12"
+            />
+            <Button
+              onClick={handleQuickCreateTask}
+              size="sm"
+              className="absolute right-1 top-1 h-8 w-8 p-0 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </div>
