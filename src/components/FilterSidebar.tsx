@@ -63,9 +63,9 @@ export const FilterSidebar = ({ activeFilter, onFilterChange, taskCounts, classN
   ];
 
   return (
-    <div className={cn("w-64 bg-white rounded-xl p-6 shadow-sm border border-slate-200 h-fit", className)}>
-      <h3 className="font-semibold text-slate-900 mb-4">Filters</h3>
-      <div className="space-y-2">
+    <div className={cn("w-full lg:w-64 bg-white rounded-xl p-4 lg:p-6 shadow-sm border border-slate-200 h-fit", className)}>
+      <h3 className="font-semibold text-slate-900 mb-3 lg:mb-4 text-base lg:text-lg">Filters</h3>
+      <div className="space-y-1 lg:space-y-2">
         {filters.map((filter) => {
           const Icon = filter.icon;
           const isActive = activeFilter === filter.id;
@@ -75,32 +75,40 @@ export const FilterSidebar = ({ activeFilter, onFilterChange, taskCounts, classN
               key={filter.id}
               onClick={() => onFilterChange(filter.id)}
               className={cn(
-                "w-full flex items-center justify-between p-3 rounded-lg text-left transition-all duration-200",
+                "w-full flex items-center justify-between p-2.5 lg:p-3 rounded-lg text-left transition-all duration-200",
                 isActive
                   ? "bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-900"
                   : "hover:bg-slate-50 text-slate-700"
               )}
             >
-              <div className="flex items-center space-x-3">
-                <Icon className={cn("h-5 w-5", isActive ? "text-blue-600" : filter.color)} />
-                <span className={cn("font-medium", isActive && "text-blue-900")}>
+              <div className="flex items-center space-x-2.5 lg:space-x-3 min-w-0 flex-1">
+                <div className="flex-shrink-0">
+                  <Icon className={cn("h-4 w-4 lg:h-5 lg:w-5", isActive ? "text-blue-600" : filter.color)} />
+                </div>
+                <span className={cn(
+                  "font-medium text-sm lg:text-base truncate",
+                  isActive && "text-blue-900"
+                )}>
                   {filter.label}
                 </span>
               </div>
-              <span className={cn(
-                "text-sm px-2 py-1 rounded-full min-w-[24px] text-center",
-                isActive 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "bg-slate-100 text-slate-600"
-              )}>
-                {filter.count}
-              </span>
+              <div className="flex-shrink-0 ml-2">
+                <span className={cn(
+                  "text-xs lg:text-sm px-1.5 lg:px-2 py-0.5 lg:py-1 rounded-full min-w-[20px] lg:min-w-[24px] text-center font-medium",
+                  isActive 
+                    ? "bg-blue-100 text-blue-700" 
+                    : "bg-slate-100 text-slate-600"
+                )}>
+                  {filter.count}
+                </span>
+              </div>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-8 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+      {/* Pro tip - Hidden on mobile, visible on desktop */}
+      <div className="hidden lg:block mt-8 p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border border-blue-100">
         <h4 className="font-medium text-slate-900 mb-2">Pro Tip</h4>
         <p className="text-sm text-slate-600">
           Use keyboard shortcuts: Press 'N' to create a new task, 'F' to toggle filters.
