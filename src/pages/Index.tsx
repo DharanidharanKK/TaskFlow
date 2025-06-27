@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react';
-import { Plus, Filter, Search, Bell, Settings, Share2 } from 'lucide-react';
+import { Plus, Filter, Search, Bell, Settings, Share2, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TaskCard } from '@/components/TaskCard';
@@ -28,6 +27,7 @@ const Index = () => {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAuth, setShowAuth] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -108,6 +108,15 @@ const Index = () => {
         break;
     }
 
+    // Sort by priority (high first) and then by due date for mobile
+    filtered.sort((a, b) => {
+      const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      }
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    });
+
     setFilteredTasks(filtered);
   }, [tasks, searchQuery, activeFilter]);
 
@@ -156,6 +165,11 @@ const Index = () => {
     }
   };
 
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter);
+    setShowMobileMenu(false); // Close mobile menu when filter is selected
+  };
+
   if (!isAuthenticated) {
     return <AuthModal onAuthenticated={() => setIsAuthenticated(true)} />;
   }
@@ -167,9 +181,20 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowMobileMenu(true)}
+                className="lg:hidden text-slate-600 hover:text-slate-900"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              
+              <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 TaskFlow
               </h1>
+              
               <div className="hidden md:flex items-center space-x-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
@@ -183,44 +208,88 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 lg:space-x-3">
+              {/* Mobile Search */}
+              <div className="md:hidden flex-1 max-w-xs">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 text-sm bg-slate-50 border-slate-200"
+                  />
+                </div>
+              </div>
+              
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowFilters(!showFilters)}
-                className="text-slate-600 hover:text-slate-900"
+                className="hidden lg:flex text-slate-600 hover:text-slate-900"
               >
                 <Filter className="h-5 w-5" />
               </Button>
+              
               <Button
                 variant="ghost"
                 size="icon"
                 className="text-slate-600 hover:text-slate-900"
               >
-                <Bell className="h-5 w-5" />
+                <Bell className="h-4 w-4 lg:h-5 lg:w-5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-slate-600 hover:text-slate-900"
-              >
-                <Settings className="h-5 w-5" />
-              </Button>
+              
               <Button
                 onClick={() => setShowTaskForm(true)}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                size="sm"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                New Task
+                <Plus className="h-4 w-4 mr-1 lg:mr-2" />
+                <span className="hidden sm:inline">New Task</span>
+                <span className="sm:hidden">New</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Mobile Filter Menu Overlay */}
+      {showMobileMenu && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowMobileMenu(false)} />
+          <div className="fixed left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-xl">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-slate-900">Filters</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowMobileMenu(false)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="p-4">
+              <FilterSidebar
+                activeFilter={activeFilter}
+                onFilterChange={handleFilterChange}
+                taskCounts={{
+                  all: tasks.length,
+                  today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
+                  overdue: tasks.filter(t => t.dueDate < new Date().toISOString().split('T')[0] && t.status !== 'completed').length,
+                  'high-priority': tasks.filter(t => t.priority === 'high').length,
+                  shared: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
+                  completed: tasks.filter(t => t.status === 'completed').length
+                }}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="flex gap-8">
-          {/* Sidebar */}
+          {/* Desktop Sidebar */}
           <FilterSidebar
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
@@ -237,8 +306,8 @@ const Index = () => {
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {/* Stats - Hidden on mobile, visible on desktop */}
+            <div className="hidden lg:grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -294,12 +363,29 @@ const Index = () => {
               </div>
             </div>
 
+            {/* Mobile Filter Info */}
+            <div className="lg:hidden mb-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {activeFilter === 'all' ? 'All Tasks' : 
+                   activeFilter === 'today' ? 'Due Today' :
+                   activeFilter === 'overdue' ? 'Overdue' :
+                   activeFilter === 'high-priority' ? 'High Priority' :
+                   activeFilter === 'shared' ? 'Shared with Me' :
+                   activeFilter === 'completed' ? 'Completed' : 'Tasks'}
+                </h2>
+                <span className="text-sm text-slate-500">
+                  {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
+                </span>
+              </div>
+            </div>
+
             {/* Task List */}
-            <div className="space-y-4">
+            <div className="space-y-3 lg:space-y-4">
               {filteredTasks.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Plus className="w-8 h-8 text-slate-400" />
+                  <div className="w-20 h-20 lg:w-24 lg:h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Plus className="w-6 h-6 lg:w-8 lg:h-8 text-slate-400" />
                   </div>
                   <h3 className="text-lg font-medium text-slate-900 mb-2">No tasks found</h3>
                   <p className="text-slate-600 mb-4">Get started by creating your first task</p>
