@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, Search, Bell, Settings, Share2, Menu, X, Clock, Sun, Moon, Lock, LogOut, Filter, Calendar, AlertTriangle, CheckCircle, List, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,8 @@ import { FilterSidebar } from '@/components/FilterSidebar';
 import { AuthModal } from '@/components/AuthModal';
 import { ShareTaskModal } from '@/components/ShareTaskModal';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 interface Task {
   id: string;
@@ -30,21 +31,56 @@ const Index = () => {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showAuth, setShowAuth] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState('john.doe@example.com');
+  const [authLoading, setAuthLoading] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const { toast } = useToast();
 
-  // Mock data
+  // Check authentication status and set up auth listener
   useEffect(() => {
-    if (isAuthenticated) {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setCurrentUser(session.user);
+          setIsAuthenticated(true);
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setCurrentUser(session.user);
+        setIsAuthenticated(true);
+        setAuthLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        setTasks([]);
+        setFilteredTasks([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Mock data - load only when authenticated
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
       const mockTasks: Task[] = [
         {
           id: '1',
@@ -53,7 +89,7 @@ const Index = () => {
           status: 'in-progress',
           priority: 'high',
           dueDate: '2024-01-15',
-          createdBy: 'john.doe@example.com',
+          createdBy: currentUser.email || 'user@example.com',
           createdAt: '2024-01-10',
           tags: ['documentation', 'urgent']
         },
@@ -65,7 +101,7 @@ const Index = () => {
           priority: 'medium',
           dueDate: '2024-01-12',
           assignedTo: ['jane.smith@example.com'],
-          createdBy: 'john.doe@example.com',
+          createdBy: currentUser.email || 'user@example.com',
           createdAt: '2024-01-09',
           tags: ['code-review']
         },
@@ -76,7 +112,7 @@ const Index = () => {
           status: 'completed',
           priority: 'high',
           dueDate: '2024-01-08',
-          createdBy: 'john.doe@example.com',
+          createdBy: currentUser.email || 'user@example.com',
           createdAt: '2024-01-05',
           tags: ['devops', 'automation']
         }
@@ -84,7 +120,7 @@ const Index = () => {
       setTasks(mockTasks);
       setFilteredTasks(mockTasks);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser]);
 
   // Filter tasks based on search and active filter
   useEffect(() => {
@@ -135,7 +171,7 @@ const Index = () => {
       ...taskData,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
-      createdBy: currentUser
+      createdBy: currentUser?.email || 'user@example.com'
     };
     setTasks(prev => [newTask, ...prev]);
     setShowTaskForm(false);
@@ -156,7 +192,7 @@ const Index = () => {
       priority: 'medium',
       dueDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
-      createdBy: currentUser,
+      createdBy: currentUser?.email || 'user@example.com',
       tags: []
     };
     
@@ -203,6 +239,23 @@ const Index = () => {
     setShowMobileMenu(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Logout Error",
+        description: "There was an error logging out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getTaskCounts = () => ({
     all: tasks.length,
     today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
@@ -212,6 +265,21 @@ const Index = () => {
     completed: tasks.filter(t => t.status === 'completed').length
   });
 
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 bg-white rounded-lg animate-pulse"></div>
+          </div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth modal if not authenticated
   if (!isAuthenticated) {
     return <AuthModal onAuthenticated={() => setIsAuthenticated(true)} />;
   }
@@ -263,6 +331,18 @@ const Index = () => {
                   />
                 </div>
               </div>
+
+              {/* Desktop Dark Mode Toggle */}
+              <div className="hidden lg:flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className={isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}
+                >
+                  {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </Button>
+              </div>
               
               <Button
                 variant="ghost"
@@ -279,6 +359,16 @@ const Index = () => {
                 className={isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}
               >
                 <Clock className="h-4 w-4 lg:h-5 lg:w-5" />
+              </Button>
+
+              {/* Desktop Logout Button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogout}
+                className={`hidden lg:flex ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <LogOut className="h-5 w-5" />
               </Button>
               
               <Button
@@ -313,6 +403,16 @@ const Index = () => {
             </div>
             
             <div className="p-4 space-y-6">
+              {/* User Info */}
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-slate-50'}`}>
+                <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                  Logged in as
+                </p>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                  {currentUser?.email}
+                </p>
+              </div>
+
               {/* Filters Section */}
               <div>
                 <h3 className={`text-md font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Filters</h3>
@@ -401,9 +501,12 @@ const Index = () => {
                     <span>Notification Preferences</span>
                   </button>
                   
-                  <button className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
-                    isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-slate-50 text-red-600'
-                  }`}>
+                  <button 
+                    onClick={handleLogout}
+                    className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
+                      isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-slate-50 text-red-600'
+                    }`}
+                  >
                     <LogOut className="h-5 w-5" />
                     <span>Logout</span>
                   </button>
@@ -540,7 +643,7 @@ const Index = () => {
       </div>
 
       {/* Mobile Quick Add Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 shadow-lg">
+      <div className={`lg:hidden fixed bottom-0 left-0 right-0 p-4 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'} border-t shadow-lg`}>
         <div className="flex items-center space-x-2">
           <div className="flex-1 relative">
             <Input
@@ -548,7 +651,7 @@ const Index = () => {
               value={quickTaskTitle}
               onChange={(e) => setQuickTaskTitle(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleQuickCreateTask()}
-              className="pr-12"
+              className={`pr-12 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
             />
             <Button
               onClick={handleQuickCreateTask}
