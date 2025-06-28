@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { MoreHorizontal, Calendar, User, Tag, Share2, Trash2, Edit, Clock } from 'lucide-react';
+import { MoreHorizontal, Calendar, User, Tag, Share2, Trash2, Edit, Clock, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -17,6 +16,11 @@ interface Task {
   createdBy: string;
   createdAt: string;
   tags: string[];
+  reminder?: {
+    enabled: boolean;
+    date: string;
+    time: string;
+  };
 }
 
 interface TaskCardProps {
@@ -52,6 +56,17 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const formatTime = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
   const isOverdue = () => {
     const today = new Date().toISOString().split('T')[0];
     return task.dueDate < today && task.status !== 'completed';
@@ -75,6 +90,12 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
             <Badge className={getStatusColor(task.status)}>
               {task.status.replace('-', ' ')}
             </Badge>
+            {task.reminder?.enabled && (
+              <Badge className="bg-blue-100 text-blue-800">
+                <Bell className="h-3 w-3 mr-1" />
+                Reminder
+              </Badge>
+            )}
           </div>
 
           <p className={`text-slate-600 mb-4 ${task.status === 'completed' ? 'line-through' : ''}`}>
@@ -87,6 +108,13 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
               <span>{formatDate(task.dueDate)}</span>
               {isOverdue() && <span className="text-red-600 font-medium">(Overdue)</span>}
             </div>
+
+            {task.reminder?.enabled && (
+              <div className="flex items-center gap-1 text-blue-600">
+                <Bell className="h-4 w-4" />
+                <span>Alarm: {formatDate(task.reminder.date)} at {formatTime(task.reminder.time)}</span>
+              </div>
+            )}
 
             {task.assignedTo && task.assignedTo.length > 0 && (
               <div className="flex items-center gap-1">
@@ -155,17 +183,17 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsExpanded(!isExpanded)}>
-                <Edit className="h-4 w-4 mr-2" />
-                {isExpanded ? 'Collapse' : 'View Details'}
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onShare(task)}>
                 <Share2 className="h-4 w-4 mr-2" />
-                Share Task
+                Share
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setIsExpanded(!isExpanded)}>
+                <User className="h-4 w-4 mr-2" />
+                {isExpanded ? 'Hide Details' : 'Show Details'}
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onDelete(task.id)}
-                className="text-red-600 focus:text-red-600"
+                className="text-red-600"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete

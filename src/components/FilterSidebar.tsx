@@ -1,4 +1,3 @@
-
 import { Calendar, Clock, AlertTriangle, Users, CheckCircle, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +9,8 @@ interface FilterSidebarProps {
     today: number;
     overdue: number;
     'high-priority': number;
+    'medium-priority': number;
+    'low-priority': number;
     shared: number;
     completed: number;
   };
@@ -45,7 +46,21 @@ export const FilterSidebar = ({ activeFilter, onFilterChange, taskCounts, classN
       label: 'High Priority',
       icon: AlertTriangle,
       count: taskCounts['high-priority'],
-      color: 'text-orange-600'
+      color: 'text-red-600'
+    },
+    {
+      id: 'medium-priority',
+      label: 'Medium Priority',
+      icon: AlertTriangle,
+      count: taskCounts['medium-priority'],
+      color: 'text-yellow-600'
+    },
+    {
+      id: 'low-priority',
+      label: 'Low Priority',
+      icon: AlertTriangle,
+      count: taskCounts['low-priority'],
+      color: 'text-green-600'
     },
     {
       id: 'shared',

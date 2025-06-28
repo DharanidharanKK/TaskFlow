@@ -1,11 +1,11 @@
-
 import { useState } from 'react';
-import { X, Calendar, Tag, User } from 'lucide-react';
+import { X, Calendar, Tag, User, Bell, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 
 interface Task {
   title: string;
@@ -15,6 +15,11 @@ interface Task {
   dueDate: string;
   assignedTo?: string[];
   tags: string[];
+  reminder?: {
+    enabled: boolean;
+    date: string;
+    time: string;
+  };
 }
 
 interface TaskFormProps {
@@ -33,6 +38,9 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
   const [newTag, setNewTag] = useState('');
   const [assignedEmails, setAssignedEmails] = useState<string[]>(initialTask?.assignedTo || []);
   const [newEmail, setNewEmail] = useState('');
+  const [reminderEnabled, setReminderEnabled] = useState(initialTask?.reminder?.enabled || false);
+  const [reminderDate, setReminderDate] = useState(initialTask?.reminder?.date || '');
+  const [reminderTime, setReminderTime] = useState(initialTask?.reminder?.time || '');
 
   const handleAddTag = () => {
     if (newTag.trim() && !tags.includes(newTag.trim())) {
@@ -68,7 +76,12 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
       priority,
       dueDate,
       assignedTo: assignedEmails,
-      tags
+      tags,
+      reminder: reminderEnabled ? {
+        enabled: true,
+        date: reminderDate,
+        time: reminderTime
+      } : undefined
     };
 
     onSave(task);
@@ -160,6 +173,56 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Reminder Section */}
+          <div className={`p-4 rounded-lg border ${reminderEnabled ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <Bell className="h-5 w-5 text-slate-600" />
+                <label className="text-sm font-medium text-slate-700">
+                  Set Reminder
+                </label>
+              </div>
+              <Switch
+                checked={reminderEnabled}
+                onCheckedChange={setReminderEnabled}
+              />
+            </div>
+            
+            {reminderEnabled && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Reminder Date
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                    <Input
+                      type="date"
+                      value={reminderDate}
+                      onChange={(e) => setReminderDate(e.target.value)}
+                      className="pl-10"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Reminder Time
+                  </label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                    <Input
+                      type="time"
+                      value={reminderTime}
+                      onChange={(e) => setReminderTime(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

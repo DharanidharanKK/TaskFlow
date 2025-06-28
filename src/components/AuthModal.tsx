@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +32,7 @@ export const AuthModal = ({ onAuthenticated }: AuthModalProps) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session?.user?.email);
       if (event === 'SIGNED_IN' && session) {
         toast({
           title: "Welcome!",
@@ -50,6 +50,10 @@ export const AuthModal = ({ onAuthenticated }: AuthModalProps) => {
       setLoading(true);
       setError('');
       
+      console.log('Starting OAuth login with:', provider);
+      console.log('Current origin:', window.location.origin);
+      console.log('Current URL:', window.location.href);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -58,8 +62,11 @@ export const AuthModal = ({ onAuthenticated }: AuthModalProps) => {
       });
 
       if (error) {
+        console.error('OAuth error:', error);
         throw error;
       }
+      
+      console.log('OAuth request sent successfully');
     } catch (error) {
       console.error(`${provider} login error:`, error);
       const errorMessage = error instanceof Error ? error.message : `Failed to login with ${provider}`;

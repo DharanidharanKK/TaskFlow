@@ -8,6 +8,8 @@ import { TaskForm } from '@/components/TaskForm';
 import { FilterSidebar } from '@/components/FilterSidebar';
 import { AuthModal } from '@/components/AuthModal';
 import { ShareTaskModal } from '@/components/ShareTaskModal';
+import { SettingsModal } from '@/components/SettingsModal';
+import { FilterModal } from '@/components/FilterModal';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
@@ -23,6 +25,11 @@ interface Task {
   createdBy: string;
   createdAt: string;
   tags: string[];
+  reminder?: {
+    enabled: boolean;
+    date: string;
+    time: string;
+  };
 }
 
 const Index = () => {
@@ -32,9 +39,12 @@ const Index = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('priority-high');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -42,6 +52,13 @@ const Index = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const { toast } = useToast();
+
+  // Debug log to verify new features are loaded
+  console.log('🚀 Enhanced Todo App loaded with new features:');
+  console.log('- Settings Modal:', !!SettingsModal);
+  console.log('- Filter Modal:', !!FilterModal);
+  console.log('- Reminder support:', true);
+  console.log('- User-specific tasks:', true);
 
   // Check authentication status and set up auth listener
   useEffect(() => {
@@ -78,51 +95,39 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Mock data - load only when authenticated
+  // Load user-specific tasks from localStorage when authenticated
   useEffect(() => {
     if (isAuthenticated && currentUser) {
-      const mockTasks: Task[] = [
-        {
-          id: '1',
-          title: 'Complete project documentation',
-          description: 'Write comprehensive documentation for the new feature release',
-          status: 'in-progress',
-          priority: 'high',
-          dueDate: '2024-01-15',
-          createdBy: currentUser.email || 'user@example.com',
-          createdAt: '2024-01-10',
-          tags: ['documentation', 'urgent']
-        },
-        {
-          id: '2',
-          title: 'Review pull requests',
-          description: 'Review and approve pending pull requests from team members',
-          status: 'todo',
-          priority: 'medium',
-          dueDate: '2024-01-12',
-          assignedTo: ['jane.smith@example.com'],
-          createdBy: currentUser.email || 'user@example.com',
-          createdAt: '2024-01-09',
-          tags: ['code-review']
-        },
-        {
-          id: '3',
-          title: 'Setup CI/CD pipeline',
-          description: 'Configure automated testing and deployment pipeline',
-          status: 'completed',
-          priority: 'high',
-          dueDate: '2024-01-08',
-          createdBy: currentUser.email || 'user@example.com',
-          createdAt: '2024-01-05',
-          tags: ['devops', 'automation']
+      const userTasksKey = `tasks_${currentUser.id}`;
+      const savedTasks = localStorage.getItem(userTasksKey);
+      
+      if (savedTasks) {
+        try {
+          const parsedTasks = JSON.parse(savedTasks);
+          setTasks(parsedTasks);
+          setFilteredTasks(parsedTasks);
+        } catch (error) {
+          console.error('Error parsing saved tasks:', error);
+          setTasks([]);
+          setFilteredTasks([]);
         }
-      ];
-      setTasks(mockTasks);
-      setFilteredTasks(mockTasks);
+      } else {
+        // New user - start with empty task list
+        setTasks([]);
+        setFilteredTasks([]);
+      }
     }
   }, [isAuthenticated, currentUser]);
 
-  // Filter tasks based on search and active filter
+  // Save tasks to localStorage whenever tasks change
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      const userTasksKey = `tasks_${currentUser.id}`;
+      localStorage.setItem(userTasksKey, JSON.stringify(tasks));
+    }
+  }, [tasks, isAuthenticated, currentUser]);
+
+  // Filter and sort tasks based on search, active filter, and sort criteria
   useEffect(() => {
     let filtered = tasks.filter(task => 
       task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -134,6 +139,7 @@ const Index = () => {
       filtered = filtered.filter(task => task.status !== 'completed');
     }
 
+    // Apply filters
     switch (activeFilter) {
       case 'today':
         const today = new Date().toISOString().split('T')[0];
@@ -146,6 +152,12 @@ const Index = () => {
       case 'high-priority':
         filtered = filtered.filter(task => task.priority === 'high');
         break;
+      case 'medium-priority':
+        filtered = filtered.filter(task => task.priority === 'medium');
+        break;
+      case 'low-priority':
+        filtered = filtered.filter(task => task.priority === 'low');
+        break;
       case 'shared':
         filtered = filtered.filter(task => task.assignedTo && task.assignedTo.length > 0);
         break;
@@ -154,17 +166,50 @@ const Index = () => {
         break;
     }
 
-    // Sort by priority (high first) and then by due date (earliest first)
-    filtered.sort((a, b) => {
-      const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
-      }
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-    });
+    // Apply sorting
+    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+    
+    switch (sortBy) {
+      case 'priority-high':
+        filtered.sort((a, b) => {
+          if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+            return priorityOrder[b.priority] - priorityOrder[a.priority];
+          }
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        });
+        break;
+      case 'priority-low':
+        filtered.sort((a, b) => {
+          if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
+          }
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        });
+        break;
+      case 'date-earliest':
+        filtered.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+        break;
+      case 'date-latest':
+        filtered.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+        break;
+      case 'created-newest':
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+      case 'created-oldest':
+        filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        break;
+      default:
+        // Default sorting by priority (high first) and then by due date (earliest first)
+        filtered.sort((a, b) => {
+          if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+            return priorityOrder[b.priority] - priorityOrder[a.priority];
+          }
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        });
+    }
 
     setFilteredTasks(filtered);
-  }, [tasks, searchQuery, activeFilter, showCompleted]);
+  }, [tasks, searchQuery, activeFilter, sortBy, showCompleted]);
 
   const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'createdBy'>) => {
     const newTask: Task = {
@@ -173,12 +218,23 @@ const Index = () => {
       createdAt: new Date().toISOString(),
       createdBy: currentUser?.email || 'user@example.com'
     };
+    
     setTasks(prev => [newTask, ...prev]);
     setShowTaskForm(false);
-    toast({
-      title: "Task created successfully!",
-      description: "Your new task has been added to your list.",
-    });
+    
+    // Show reminder message if alarm is set
+    if (taskData.reminder?.enabled) {
+      const reminderDate = new Date(`${taskData.reminder.date}T${taskData.reminder.time}`);
+      toast({
+        title: "Task created successfully!",
+        description: `Alarm set for ${reminderDate.toLocaleDateString()} at ${reminderDate.toLocaleTimeString()}`,
+      });
+    } else {
+      toast({
+        title: "Task created successfully!",
+        description: "Your new task has been added to your list.",
+      });
+    }
   };
 
   const handleQuickCreateTask = () => {
@@ -208,10 +264,20 @@ const Index = () => {
     setTasks(prev => prev.map(task => 
       task.id === taskId ? { ...task, ...updates } : task
     ));
-    toast({
-      title: "Task updated!",
-      description: "Your changes have been saved.",
-    });
+    
+    // Show reminder message if alarm is updated
+    if (updates.reminder?.enabled) {
+      const reminderDate = new Date(`${updates.reminder.date}T${updates.reminder.time}`);
+      toast({
+        title: "Task updated!",
+        description: `Alarm set for ${reminderDate.toLocaleDateString()} at ${reminderDate.toLocaleTimeString()}`,
+      });
+    } else {
+      toast({
+        title: "Task updated!",
+        description: "Your changes have been saved.",
+      });
+    }
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -239,6 +305,10 @@ const Index = () => {
     setShowMobileMenu(false);
   };
 
+  const handleSortChange = (sort: string) => {
+    setSortBy(sort);
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -261,6 +331,8 @@ const Index = () => {
     today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
     overdue: tasks.filter(t => t.dueDate < new Date().toISOString().split('T')[0] && t.status !== 'completed').length,
     'high-priority': tasks.filter(t => t.priority === 'high').length,
+    'medium-priority': tasks.filter(t => t.priority === 'medium').length,
+    'low-priority': tasks.filter(t => t.priority === 'low').length,
     shared: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
     completed: tasks.filter(t => t.status === 'completed').length
   });
@@ -305,6 +377,11 @@ const Index = () => {
                 TaskFlow
               </h1>
               
+              {/* Temporary indicator that new features are loaded */}
+              <div className="hidden lg:flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                ✨ Enhanced Features Loaded
+              </div>
+              
               <div className="hidden md:flex items-center space-x-2">
                 <div className="relative">
                   <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'} h-4 w-4`} />
@@ -344,31 +421,24 @@ const Index = () => {
                 </Button>
               </div>
               
+              {/* Desktop Filter Button */}
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowFilters(!showFilters)}
+                onClick={() => setShowFilterModal(true)}
                 className={`hidden lg:flex ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 <Filter className="h-5 w-5" />
               </Button>
               
+              {/* Desktop Settings Button */}
               <Button
                 variant="ghost"
                 size="icon"
-                className={isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}
-              >
-                <Clock className="h-4 w-4 lg:h-5 lg:w-5" />
-              </Button>
-
-              {/* Desktop Logout Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
+                onClick={() => setShowSettingsModal(true)}
                 className={`hidden lg:flex ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-slate-600 hover:text-slate-900'}`}
               >
-                <LogOut className="h-5 w-5" />
+                <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
               </Button>
               
               <Button
@@ -422,7 +492,10 @@ const Index = () => {
                     { id: 'today', label: 'Due Today', icon: Calendar, count: getTaskCounts().today },
                     { id: 'overdue', label: 'Overdue', icon: Clock, count: getTaskCounts().overdue },
                     { id: 'high-priority', label: 'High Priority', icon: AlertTriangle, count: getTaskCounts()['high-priority'] },
+                    { id: 'medium-priority', label: 'Medium Priority', icon: AlertTriangle, count: getTaskCounts()['medium-priority'] },
+                    { id: 'low-priority', label: 'Low Priority', icon: AlertTriangle, count: getTaskCounts()['low-priority'] },
                     { id: 'shared', label: 'Shared Tasks', icon: Users, count: getTaskCounts().shared },
+                    { id: 'completed', label: 'Completed Tasks', icon: CheckCircle, count: getTaskCounts().completed },
                   ].map((filter) => {
                     const Icon = filter.icon;
                     const isActive = activeFilter === filter.id;
@@ -487,18 +560,16 @@ const Index = () => {
               <div>
                 <h3 className={`text-md font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Settings</h3>
                 <div className="space-y-2">
-                  <button className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
-                    isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
-                  }`}>
-                    <Lock className="h-5 w-5" />
-                    <span>Change Password</span>
-                  </button>
-                  
-                  <button className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
-                    isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
-                  }`}>
-                    <Bell className="h-5 w-5" />
-                    <span>Notification Preferences</span>
+                  <button 
+                    onClick={() => {
+                      setShowSettingsModal(true);
+                      setShowMobileMenu(false);
+                    }}
+                    className={`w-full flex items-center space-x-3 p-3 rounded-lg text-left transition-colors ${
+                      isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-slate-50 text-slate-700'
+                    }`}>
+                    <Settings className="h-5 w-5" />
+                    <span>Settings</span>
                   </button>
                   
                   <button 
@@ -595,6 +666,8 @@ const Index = () => {
                    activeFilter === 'today' ? 'Due Today' :
                    activeFilter === 'overdue' ? 'Overdue' :
                    activeFilter === 'high-priority' ? 'High Priority' :
+                   activeFilter === 'medium-priority' ? 'Medium Priority' :
+                   activeFilter === 'low-priority' ? 'Low Priority' :
                    activeFilter === 'shared' ? 'Shared Tasks' :
                    activeFilter === 'completed' ? 'Completed Tasks' : 'Tasks'}
                 </h2>
@@ -680,6 +753,29 @@ const Index = () => {
             setShowShareModal(false);
             setSelectedTask(null);
           }}
+        />
+      )}
+
+      {showSettingsModal && (
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          currentUser={currentUser}
+          isDarkMode={isDarkMode}
+          onDarkModeToggle={setIsDarkMode}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {showFilterModal && (
+        <FilterModal
+          isOpen={showFilterModal}
+          onClose={() => setShowFilterModal(false)}
+          activeFilter={activeFilter}
+          onFilterChange={handleFilterChange}
+          sortBy={sortBy}
+          onSortChange={handleSortChange}
+          isDarkMode={isDarkMode}
         />
       )}
     </div>
