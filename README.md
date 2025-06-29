@@ -6,7 +6,7 @@ A full-stack productivity application where users can manage their personal and 
 
 ## 🚀 Features
 
-- 🌐 OAuth Authentication (Google, GitHub, Facebook)
+- 🌐 OAuth Authentication (Google, GitHub)
 - ✅ Full CRUD operations for tasks
 - 📤 Share tasks with others
 - 🔄 Real-time updates via Supabase Realtime
@@ -18,6 +18,14 @@ A full-stack productivity application where users can manage their personal and 
 - 🌗 Dark mode toggle
 
 ---
+
+ How It looks(Lite mode)
+![lite_mode](lite_mode.png)
+
+
+ How It looks(Dark mode)
+![lite_mode](dark_mode.png)
+
 
 ## 🛠️ Tech Stack
 
