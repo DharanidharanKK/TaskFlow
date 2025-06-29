@@ -1,73 +1,92 @@
-# Welcome to your Lovable project
+# ✅ AI-Powered Todo Task Management App
 
-## Project info
+A full-stack productivity application where users can manage their personal and shared tasks. It features social authentication, voice command input, and AI assistant integration using Google Gemini for natural interaction.
 
-**URL**: https://lovable.dev/projects/ab43ca88-e8cb-4eda-aa5b-28015073723b
+---
 
-## How can I edit this code?
+## 🚀 Features
 
-There are several ways of editing your application.
+- 🌐 OAuth Authentication (Google, GitHub, Facebook)
+- ✅ Full CRUD operations for tasks
+- 📤 Share tasks with others
+- 🔄 Real-time updates via Supabase Realtime
+- 🔍 Filter tasks (due today, overdue, priority, etc.)
+- 🧠 AI Assistant (Gemini API) for voice-based task deletion and future smart CRUD
+- 🎙️ Voice command support using Web Speech API
+- ☁️ Attach files via Supabase Storage
+- 📱 Fully responsive for desktop + mobile
+- 🌗 Dark mode toggle
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ab43ca88-e8cb-4eda-aa5b-28015073723b) and start prompting.
+## 🛠️ Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+| Layer       | Tech                                         |
+|-------------|----------------------------------------------|
+| Frontend    | React, Vite, Tailwind CSS, Web Speech API    |
+| Backend     | Supabase (Auth, DB, Storage, Realtime)       |
+| AI Assistant| Google Gemini API (prompt → JSON)            |
+| Hosting     | Vercel (frontend), Supabase (backend + DB)   |
+| Storage     | Supabase Storage for file attachments        |
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## ⚙️ How It Works (Workflow Diagram)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+![Workflow](workflow.png) <!-- Replace with actual exported image or link -->
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🧱 Architecture Diagram
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+![Architecture](architecture.png) <!-- Replace with actual exported image or link -->
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🔐 Authentication
 
-**Edit a file directly in GitHub**
+- Social login with OAuth 2.0
+- Provider options:
+  - ✅ Google
+  - ✅ GitHub
+  - ✅ Facebook
+- Managed securely via Supabase Auth
+- JWT session storage
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 📡 Real-Time Updates
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Task changes are synced in real-time using Supabase’s built-in websocket layer.
+- No page refresh required for updates.
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## 🎯 Current AI Capability
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- ✅ Task deletion using voice or text via Gemini AI
+- 🛠️ Future: Smart create/update tasks from freeform voice input
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/ab43ca88-e8cb-4eda-aa5b-28015073723b) and click on Share -> Publish.
+## 🧪 Assumptions
 
-## Can I connect a custom domain to my Lovable project?
+- Voice commands must be supported in browser
+- AI assistant is currently partially implemented (delete only)
+- Users must allow mic access for voice control
+- Only shared tasks marked by the user are available to others
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📦 Deployment
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- 🔗 Live: [LIVE_LINK](https://your-app.vercel.app)
+- 🔗 GitHub: [GITHUB_REPO](https://github.com/your-username/todo-ai)
+
+---
+
+## 🏁 Setup Instructions
+
+1. Clone the repo:
+```bash
+git clone https://github.com/your-username/todo-ai.git
