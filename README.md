@@ -39,7 +39,7 @@ A full-stack productivity application where users can manage their personal and 
 
 ## 🧱 Architecture Diagram
 
-![Architecture](application architecture.png) <!-- Replace with actual exported image or link -->
+![Architecture](architecture.png) <!-- Replace with actual exported image or link -->
 
 ---
 
@@ -54,6 +54,8 @@ A full-stack productivity application where users can manage their personal and 
 - JWT session storage
 
 ---
+
+lite mode
 
 ## 📡 Real-Time Updates
 
