@@ -1,9 +1,9 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2, Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -119,6 +119,11 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       return { action: 'delete_completed' };
     }
     
+    // Delete all tasks
+    if (lowerMessage.includes('delete') && lowerMessage.includes('all') && lowerMessage.includes('task')) {
+      return { action: 'delete_all' };
+    }
+    
     return null;
   };
 
@@ -165,6 +170,8 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
           responseContent = `Great! I've created a task "${taskCommand.data.title}" with ${taskCommand.data.priority} priority due on ${taskCommand.data.dueDate}.`;
         } else if (taskCommand.action === 'delete_completed') {
           responseContent = "I've deleted all completed tasks for you.";
+        } else if (taskCommand.action === 'delete_all') {
+          responseContent = "I've deleted all tasks for you.";
         }
         
         const aiResponse: Message = {
@@ -180,17 +187,20 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       }
 
       // Send to AI for general questions
-      const response = await fetch('/api/chat-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: currentInput })
+      console.log('Calling chat-ai function with message:', currentInput);
+      
+      const { data, error } = await supabase.functions.invoke('chat-ai', {
+        body: { message: currentInput }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to get AI response');
       }
 
-      const data = await response.json();
+      if (!data || !data.response) {
+        throw new Error('Invalid response from AI service');
+      }
       
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -202,10 +212,18 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
       console.error('AI Chat error:', error);
+      
+      let errorMessage = 'Sorry, I encountered an error. Please try again.';
+      if (error.message.includes('Rate limit')) {
+        errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+      } else if (error.message.includes('Invalid API key')) {
+        errorMessage = 'There seems to be an issue with the API configuration. Please check the settings.';
+      }
+      
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: errorMessage,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorResponse]);

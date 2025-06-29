@@ -21,6 +21,12 @@ serve(async (req) => {
       throw new Error('No message provided');
     }
 
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    console.log('Sending request to OpenAI with message:', message);
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,7 +45,9 @@ serve(async (req) => {
             4. Prioritization strategies
             5. General questions about organization and efficiency
             
-            Keep responses concise and actionable. Focus on practical advice that helps users be more productive.`
+            Keep responses concise and actionable. Focus on practical advice that helps users be more productive.
+            
+            If the user asks to delete tasks or create tasks, acknowledge the request and let them know the action will be handled by the task management system.`
           },
           {
             role: 'user',
@@ -51,11 +59,28 @@ serve(async (req) => {
       }),
     });
 
+    console.log('OpenAI response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a moment.');
+      } else if (response.status === 401) {
+        throw new Error('Invalid API key. Please check your OpenAI API key configuration.');
+      } else {
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      }
     }
 
     const data = await response.json();
+    console.log('OpenAI response received successfully');
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid response format from OpenAI');
+    }
+
     const aiResponse = data.choices[0].message.content;
 
     return new Response(JSON.stringify({ response: aiResponse }), {
@@ -63,8 +88,18 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in chat-ai function:', error);
+    
+    let errorMessage = 'Failed to get AI response';
+    if (error.message.includes('Rate limit')) {
+      errorMessage = 'Rate limit exceeded. Please try again in a moment.';
+    } else if (error.message.includes('Invalid API key')) {
+      errorMessage = 'Invalid API key. Please check your configuration.';
+    } else if (error.message.includes('OpenAI API key not configured')) {
+      errorMessage = 'OpenAI API key is not configured.';
+    }
+    
     return new Response(JSON.stringify({ 
-      error: 'Failed to get AI response',
+      error: errorMessage,
       details: error.message 
     }), {
       status: 500,

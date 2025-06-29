@@ -493,6 +493,15 @@ const Index = () => {
         title: "Completed tasks deleted",
         description: `${completedTasks.length} completed tasks have been removed.`,
       });
+    } else if (action === 'delete_all') {
+      const allTasks = [...tasks];
+      for (const task of allTasks) {
+        await handleDeleteTask(task.id);
+      }
+      toast({
+        title: "All tasks deleted",
+        description: `${allTasks.length} tasks have been removed.`,
+      });
     }
   };
 
