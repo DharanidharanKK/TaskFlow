@@ -92,3 +92,7 @@ lite mode
 1. Clone the repo:
 ```bash
 git clone https://github.com/your-username/todo-ai.git
+
+
+“This project is a part of a hackathon run by 
+https://www.katomaran.com ”
