@@ -32,7 +32,7 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       setMessages([{
         id: '1',
         type: 'ai',
-        content: 'Hi! I\'m your AI assistant. I can help you manage tasks, answer questions about productivity, and execute voice commands. Try asking me something like "Create a task to finish the report by tomorrow" or "What\'s the best way to stay organized?"',
+        content: 'Hi! I\'m your AI assistant powered by Google Gemini. I can help you manage tasks with voice or text commands. Try saying: "Create a task to finish the report by tomorrow" or "What\'s the best way to stay organized?"',
         timestamp: new Date()
       }]);
     }
@@ -90,58 +90,88 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
     }
   };
 
-  const parseTaskCommand = (message: string) => {
-    const lowerMessage = message.toLowerCase();
-    
-    // Create task command
-    if (lowerMessage.includes('create') && lowerMessage.includes('task')) {
-      const taskMatch = message.match(/create.*?task.*?to\s+(.*?)(?:\s+(?:by|on|due)\s+(.*?))?(?:\s+with\s+(high|medium|low)\s+priority)?/i);
-      if (taskMatch) {
-        const title = taskMatch[1].trim();
-        const dueDate = taskMatch[2] || 'today';
-        const priority = taskMatch[3] || 'medium';
-        
-        return {
-          action: 'create',
-          data: {
-            title,
-            description: '',
-            priority: priority.toLowerCase(),
-            dueDate: parseDateString(dueDate),
-            status: 'todo'
-          }
-        };
-      }
-    }
-    
-    // Delete completed tasks
-    if (lowerMessage.includes('delete') && lowerMessage.includes('completed')) {
-      return { action: 'delete_completed' };
-    }
-    
-    // Delete all tasks
-    if (lowerMessage.includes('delete') && lowerMessage.includes('all') && lowerMessage.includes('task')) {
-      return { action: 'delete_all' };
-    }
-    
-    return null;
-  };
-
   const parseDateString = (dateStr: string) => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
     
-    if (dateStr.includes('today')) return today.toISOString().split('T')[0];
-    if (dateStr.includes('tomorrow')) return tomorrow.toISOString().split('T')[0];
+    if (dateStr && dateStr.includes('today')) return today.toISOString().split('T')[0];
+    if (dateStr && dateStr.includes('tomorrow')) return tomorrow.toISOString().split('T')[0];
     
-    // Try to parse other date formats
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString().split('T')[0];
+    if (dateStr) {
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
     }
     
     return today.toISOString().split('T')[0];
+  };
+
+  const executeGeminiAction = async (actionData: any) => {
+    if (!onTaskAction) return;
+
+    try {
+      switch (actionData.action) {
+        case 'create_task':
+          await onTaskAction('create', {
+            title: actionData.title,
+            description: actionData.description || '',
+            priority: actionData.priority || 'medium',
+            dueDate: actionData.due_date ? parseDateString(actionData.due_date) : new Date().toISOString().split('T')[0],
+            status: actionData.status || 'todo'
+          });
+          return `Created task: "${actionData.title}"`;
+
+        case 'update_task':
+          await onTaskAction('update', {
+            targetTitle: actionData.target_title,
+            title: actionData.title,
+            description: actionData.description,
+            priority: actionData.priority,
+            dueDate: actionData.due_date ? parseDateString(actionData.due_date) : undefined,
+            status: actionData.status
+          });
+          return `Updated task: "${actionData.target_title}"`;
+
+        case 'delete_task':
+          await onTaskAction('delete_by_title', { targetTitle: actionData.target_title });
+          return `Deleted task: "${actionData.target_title}"`;
+
+        case 'delete_all_tasks':
+          await onTaskAction('delete_all');
+          return "Deleted all tasks";
+
+        case 'delete_all_completed_tasks':
+          await onTaskAction('delete_completed');
+          return "Deleted all completed tasks";
+
+        case 'mark_task_complete':
+          await onTaskAction('mark_complete', { targetTitle: actionData.target_title });
+          return `Marked "${actionData.target_title}" as complete`;
+
+        case 'mark_task_incomplete':
+          await onTaskAction('mark_incomplete', { targetTitle: actionData.target_title });
+          return `Marked "${actionData.target_title}" as incomplete`;
+
+        case 'set_task_priority':
+          await onTaskAction('set_priority', { 
+            targetTitle: actionData.target_title, 
+            priority: actionData.priority 
+          });
+          return `Set "${actionData.target_title}" priority to ${actionData.priority}`;
+
+        case 'give_task_tip':
+        case 'estimate_task_time':
+          return actionData.response || "Here's a helpful tip for managing your tasks effectively.";
+
+        default:
+          return actionData.response || "I processed your request successfully.";
+      }
+    } catch (error) {
+      console.error('Error executing Gemini action:', error);
+      throw error;
+    }
   };
 
   const handleSendMessage = async () => {
@@ -160,33 +190,6 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
     setIsLoading(true);
 
     try {
-      // Check if it's a task command
-      const taskCommand = parseTaskCommand(currentInput);
-      if (taskCommand && onTaskAction) {
-        onTaskAction(taskCommand.action, taskCommand.data);
-        
-        let responseContent = '';
-        if (taskCommand.action === 'create') {
-          responseContent = `Great! I've created a task "${taskCommand.data.title}" with ${taskCommand.data.priority} priority due on ${taskCommand.data.dueDate}.`;
-        } else if (taskCommand.action === 'delete_completed') {
-          responseContent = "I've deleted all completed tasks for you.";
-        } else if (taskCommand.action === 'delete_all') {
-          responseContent = "I've deleted all tasks for you.";
-        }
-        
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'ai',
-          content: responseContent,
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, aiResponse]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Send to AI for general questions
       console.log('Calling chat-ai function with message:', currentInput);
       
       const { data, error } = await supabase.functions.invoke('chat-ai', {
@@ -201,11 +204,20 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       if (!data || !data.response) {
         throw new Error('Invalid response from AI service');
       }
+
+      let responseContent = '';
+      
+      // Handle Gemini's JSON response
+      if (typeof data.response === 'object' && data.response.action) {
+        responseContent = await executeGeminiAction(data.response);
+      } else {
+        responseContent = data.response;
+      }
       
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: data.response,
+        content: responseContent,
         timestamp: new Date()
       };
 
@@ -217,7 +229,7 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       if (error.message.includes('Rate limit')) {
         errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
       } else if (error.message.includes('Invalid API key')) {
-        errorMessage = 'There seems to be an issue with the API configuration. Please check the settings.';
+        errorMessage = 'There seems to be an issue with the Gemini API configuration. Please check the settings.';
       }
       
       const errorResponse: Message = {
@@ -232,6 +244,7 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
     }
   };
 
+  
   if (!isOpen) {
     return (
       <Button
@@ -250,7 +263,7 @@ export const AIChatAssistant = ({ onTaskAction, isDarkMode = false }: AIChatAssi
       <div className={`flex items-center justify-between p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="flex items-center space-x-2">
           <MessageCircle className={`h-5 w-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-          <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>AI Assistant</h3>
+          <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Gemini AI Assistant</h3>
         </div>
         <Button
           variant="ghost"

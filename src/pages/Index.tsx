@@ -420,89 +420,102 @@ const Index = () => {
     }
   };
 
+  const handleAITaskAction = async (action: string, taskData?: any) => {
+    try {
+      if (action === 'create' && taskData) {
+        await handleCreateTask(taskData);
+      } else if (action === 'update' && taskData) {
+        // Find task by title and update
+        const targetTask = tasks.find(task => 
+          task.title.toLowerCase().includes(taskData.targetTitle?.toLowerCase() || '')
+        );
+        if (targetTask) {
+          const updates: Partial<Task> = {};
+          if (taskData.title) updates.title = taskData.title;
+          if (taskData.description) updates.description = taskData.description;
+          if (taskData.priority) updates.priority = taskData.priority;
+          if (taskData.dueDate) updates.dueDate = taskData.dueDate;
+          if (taskData.status) updates.status = taskData.status;
+          
+          await handleUpdateTask(targetTask.id, updates);
+        } else {
+          throw new Error(`Task "${taskData.targetTitle}" not found`);
+        }
+      } else if (action === 'delete_by_title' && taskData) {
+        const targetTask = tasks.find(task => 
+          task.title.toLowerCase().includes(taskData.targetTitle?.toLowerCase() || '')
+        );
+        if (targetTask) {
+          await handleDeleteTask(targetTask.id);
+        } else {
+          throw new Error(`Task "${taskData.targetTitle}" not found`);
+        }
+      } else if (action === 'delete_completed') {
+        const completedTasks = tasks.filter(task => task.status === 'completed');
+        for (const task of completedTasks) {
+          await handleDeleteTask(task.id);
+        }
+        toast({
+          title: "Completed tasks deleted",
+          description: `${completedTasks.length} completed tasks have been removed.`,
+        });
+      } else if (action === 'delete_all') {
+        const allTasks = [...tasks];
+        for (const task of allTasks) {
+          await handleDeleteTask(task.id);
+        }
+        toast({
+          title: "All tasks deleted",
+          description: `${allTasks.length} tasks have been removed.`,
+        });
+      } else if (action === 'mark_complete' && taskData) {
+        const targetTask = tasks.find(task => 
+          task.title.toLowerCase().includes(taskData.targetTitle?.toLowerCase() || '')
+        );
+        if (targetTask) {
+          await handleUpdateTask(targetTask.id, { status: 'completed' });
+        } else {
+          throw new Error(`Task "${taskData.targetTitle}" not found`);
+        }
+      } else if (action === 'mark_incomplete' && taskData) {
+        const targetTask = tasks.find(task => 
+          task.title.toLowerCase().includes(taskData.targetTitle?.toLowerCase() || '')
+        );
+        if (targetTask) {
+          await handleUpdateTask(targetTask.id, { status: 'todo' });
+        } else {
+          throw new Error(`Task "${taskData.targetTitle}" not found`);
+        }
+      } else if (action === 'set_priority' && taskData) {
+        const targetTask = tasks.find(task => 
+          task.title.toLowerCase().includes(taskData.targetTitle?.toLowerCase() || '')
+        );
+        if (targetTask) {
+          await handleUpdateTask(targetTask.id, { priority: taskData.priority });
+        } else {
+          throw new Error(`Task "${taskData.targetTitle}" not found`);
+        }
+      }
+    } catch (error) {
+      console.error('Error executing task action:', error);
+      toast({
+        title: "Action failed",
+        description: error.message || "Failed to execute the requested action.",
+        variant: "destructive"
+      });
+      throw error; // Re-throw so the AI assistant can handle it
+    }
+  };
+
   const handleVoiceCommand = async (command: string) => {
     console.log('Voice command received:', command);
     
-    const lowerCommand = command.toLowerCase();
-    
-    // Create task command
-    if (lowerCommand.includes('create') && lowerCommand.includes('task')) {
-      const taskMatch = command.match(/create.*?task.*?to\s+(.*?)(?:\s+(?:by|on|due)\s+(.*?))?(?:\s+with\s+(high|medium|low)\s+priority)?/i);
-      if (taskMatch) {
-        const title = taskMatch[1].trim();
-        const dueDate = taskMatch[2] || 'today';
-        const priority = taskMatch[3] || 'medium';
-        
-        const taskData = {
-          title,
-          description: '',
-          priority: priority.toLowerCase() as 'low' | 'medium' | 'high',
-          dueDate: parseDateString(dueDate),
-          status: 'todo' as const,
-          tags: [],
-          assignedTo: []
-        };
-        
-        await handleCreateTask(taskData);
-        toast({
-          title: "Task created from voice command",
-          description: `"${title}" has been added to your tasks.`,
-        });
-        return;
-      }
-    }
-    
-    // Delete completed tasks
-    if (lowerCommand.includes('delete') && lowerCommand.includes('completed')) {
-      const completedTasks = tasks.filter(task => task.status === 'completed');
-      for (const task of completedTasks) {
-        await handleDeleteTask(task.id);
-      }
-      toast({
-        title: "Completed tasks deleted",
-        description: `${completedTasks.length} completed tasks have been removed.`,
-      });
-      return;
-    }
-    
-    // If it's a question, let the AI chat handle it
-    if (lowerCommand.includes('how') || lowerCommand.includes('what') || lowerCommand.includes('when') || lowerCommand.includes('?')) {
-      // This could trigger the AI chat with the voice command
-      toast({
-        title: "Voice question received",
-        description: "Check the AI assistant for the answer.",
-      });
-      return;
-    }
-    
+    // Let the AI assistant handle all voice commands through Gemini
+    // This provides a unified experience
     toast({
-      title: "Voice command not recognized",
-      description: "Try commands like 'Create a task to...' or 'Delete all completed tasks'",
+      title: "Voice command received",
+      description: "Processing with Gemini AI...",
     });
-  };
-
-  const handleAITaskAction = async (action: string, taskData?: any) => {
-    if (action === 'create' && taskData) {
-      await handleCreateTask(taskData);
-    } else if (action === 'delete_completed') {
-      const completedTasks = tasks.filter(task => task.status === 'completed');
-      for (const task of completedTasks) {
-        await handleDeleteTask(task.id);
-      }
-      toast({
-        title: "Completed tasks deleted",
-        description: `${completedTasks.length} completed tasks have been removed.`,
-      });
-    } else if (action === 'delete_all') {
-      const allTasks = [...tasks];
-      for (const task of allTasks) {
-        await handleDeleteTask(task.id);
-      }
-      toast({
-        title: "All tasks deleted",
-        description: `${allTasks.length} tasks have been removed.`,
-      });
-    }
   };
 
   const parseDateString = (dateStr: string) => {
