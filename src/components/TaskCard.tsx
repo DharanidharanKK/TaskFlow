@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { MoreHorizontal, Calendar, User, Tag, Share2, Trash2, Edit, Clock, Bell } from 'lucide-react';
+import { MoreHorizontal, Calendar, User, Tag, Share2, Trash2, Edit, Clock, Bell, File, Eye, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -16,6 +17,7 @@ interface Task {
   createdBy: string;
   createdAt: string;
   tags: string[];
+  attachmentUrl?: string;
   reminder?: {
     enabled: boolean;
     date: string;
@@ -28,9 +30,10 @@ interface TaskCardProps {
   onUpdate: (taskId: string, updates: Partial<Task>) => void;
   onDelete: (taskId: string) => void;
   onShare: (task: Task) => void;
+  isDarkMode?: boolean;
 }
 
-export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) => {
+export const TaskCard = ({ task, onUpdate, onDelete, onShare, isDarkMode = false }: TaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getPriorityColor = (priority: string) => {
@@ -72,15 +75,31 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
     return task.dueDate < today && task.status !== 'completed';
   };
 
+  const getFileName = (url: string) => {
+    return url.split('/').pop()?.split('?')[0] || 'attachment';
+  };
+
+  const handleViewFile = () => {
+    if (task.attachmentUrl) {
+      window.open(task.attachmentUrl, '_blank');
+    }
+  };
+
   return (
-    <div className={`bg-white rounded-xl p-6 shadow-sm border transition-all duration-300 hover:shadow-md ${
-      task.status === 'completed' ? 'border-green-200 bg-green-50/50' : 'border-slate-200'
+    <div className={`${
+      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'
+    } rounded-xl p-6 shadow-sm border transition-all duration-300 hover:shadow-md ${
+      task.status === 'completed' 
+        ? isDarkMode ? 'border-green-700 bg-green-900/20' : 'border-green-200 bg-green-50/50' 
+        : ''
     }`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-3">
             <h3 className={`font-semibold text-lg ${
-              task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900'
+              task.status === 'completed' 
+                ? isDarkMode ? 'line-through text-gray-400' : 'line-through text-slate-500'
+                : isDarkMode ? 'text-white' : 'text-slate-900'
             }`}>
               {task.title}
             </h3>
@@ -98,11 +117,35 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
             )}
           </div>
 
-          <p className={`text-slate-600 mb-4 ${task.status === 'completed' ? 'line-through' : ''}`}>
+          <p className={`${
+            isDarkMode ? 'text-gray-300' : 'text-slate-600'
+          } mb-4 ${task.status === 'completed' ? 'line-through' : ''}`}>
             {task.description}
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
+          {/* File Attachment */}
+          {task.attachmentUrl && (
+            <div className={`flex items-center justify-between p-3 rounded-lg mb-4 ${
+              isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+            } border`}>
+              <div className="flex items-center space-x-2">
+                <File className={`h-4 w-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                  {getFileName(task.attachmentUrl)}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleViewFile}
+                className={`h-8 w-8 p-0 ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          <div className={`flex flex-wrap items-center gap-4 text-sm ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
             <div className={`flex items-center gap-1 ${isOverdue() ? 'text-red-600' : ''}`}>
               <Calendar className="h-4 w-4" />
               <span>{formatDate(task.dueDate)}</span>
@@ -148,8 +191,8 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
           </div>
 
           {isExpanded && task.assignedTo && task.assignedTo.length > 0 && (
-            <div className="mt-4 p-3 bg-slate-50 rounded-lg">
-              <p className="text-sm font-medium text-slate-700 mb-2">Assigned to:</p>
+            <div className={`mt-4 p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-slate-50'}`}>
+              <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>Assigned to:</p>
               <div className="flex flex-wrap gap-2">
                 {task.assignedTo.map((email) => (
                   <Badge key={email} variant="secondary" className="text-xs">
@@ -166,7 +209,7 @@ export const TaskCard = ({ task, onUpdate, onDelete, onShare }: TaskCardProps) =
             value={task.status}
             onValueChange={(value) => onUpdate(task.id, { status: value as Task['status'] })}
           >
-            <SelectTrigger className="w-32 h-8 text-xs">
+            <SelectTrigger className={`w-32 h-8 text-xs ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

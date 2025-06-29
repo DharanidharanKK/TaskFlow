@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { FileAttachment } from './FileAttachment';
 
 interface Task {
   title: string;
@@ -15,6 +16,7 @@ interface Task {
   dueDate: string;
   assignedTo?: string[];
   tags: string[];
+  attachmentUrl?: string;
   reminder?: {
     enabled: boolean;
     date: string;
@@ -26,9 +28,10 @@ interface TaskFormProps {
   onSave: (task: Task) => void;
   onClose: () => void;
   initialTask?: Partial<Task>;
+  isDarkMode?: boolean;
 }
 
-export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
+export const TaskForm = ({ onSave, onClose, initialTask, isDarkMode = false }: TaskFormProps) => {
   const [title, setTitle] = useState(initialTask?.title || '');
   const [description, setDescription] = useState(initialTask?.description || '');
   const [status, setStatus] = useState<Task['status']>(initialTask?.status || 'todo');
@@ -38,6 +41,7 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
   const [newTag, setNewTag] = useState('');
   const [assignedEmails, setAssignedEmails] = useState<string[]>(initialTask?.assignedTo || []);
   const [newEmail, setNewEmail] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState<string | null>(initialTask?.attachmentUrl || null);
   const [reminderEnabled, setReminderEnabled] = useState(initialTask?.reminder?.enabled || false);
   const [reminderDate, setReminderDate] = useState(initialTask?.reminder?.date || '');
   const [reminderTime, setReminderTime] = useState(initialTask?.reminder?.time || '');
@@ -77,6 +81,7 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
       dueDate,
       assignedTo: assignedEmails,
       tags,
+      attachmentUrl: attachmentUrl || undefined,
       reminder: reminderEnabled ? {
         enabled: true,
         date: reminderDate,
@@ -89,9 +94,9 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-xl font-semibold text-slate-900">
+      <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto`}>
+        <div className={`flex items-center justify-between p-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+          <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
             {initialTask ? 'Edit Task' : 'Create New Task'}
           </h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -101,20 +106,20 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
               Task Title *
             </label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter task title..."
-              className="w-full"
+              className={`w-full ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
               Description
             </label>
             <Textarea
@@ -122,17 +127,17 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add task description..."
               rows={4}
-              className="w-full"
+              className={`w-full ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
                 Status
               </label>
               <Select value={status} onValueChange={(value) => setStatus(value as Task['status'])}>
-                <SelectTrigger>
+                <SelectTrigger className={isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -144,11 +149,11 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
                 Priority
               </label>
               <Select value={priority} onValueChange={(value) => setPriority(value as Task['priority'])}>
-                <SelectTrigger>
+                <SelectTrigger className={isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -160,27 +165,43 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
                 Due Date
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Calendar className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'} h-4 w-4`} />
                 <Input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="pl-10"
+                  className={`pl-10 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                 />
               </div>
             </div>
           </div>
 
+          {/* File Attachment Section */}
+          <div>
+            <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
+              File Attachment
+            </label>
+            <FileAttachment
+              attachmentUrl={attachmentUrl}
+              onAttachmentChange={setAttachmentUrl}
+              isDarkMode={isDarkMode}
+            />
+          </div>
+
           {/* Reminder Section */}
-          <div className={`p-4 rounded-lg border ${reminderEnabled ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className={`p-4 rounded-lg border ${
+            reminderEnabled 
+              ? isDarkMode ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'
+              : isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-slate-50 border-slate-200'
+          }`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-2">
-                <Bell className="h-5 w-5 text-slate-600" />
-                <label className="text-sm font-medium text-slate-700">
+                <Bell className={`h-5 w-5 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`} />
+                <label className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'}`}>
                   Set Reminder
                 </label>
               </div>
@@ -193,31 +214,31 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
             {reminderEnabled && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
                     Reminder Date
                   </label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                    <Calendar className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'} h-4 w-4`} />
                     <Input
                       type="date"
                       value={reminderDate}
                       onChange={(e) => setReminderDate(e.target.value)}
-                      className="pl-10"
+                      className={`pl-10 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                       min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
                     Reminder Time
                   </label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                    <Clock className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? 'text-gray-400' : 'text-slate-400'} h-4 w-4`} />
                     <Input
                       type="time"
                       value={reminderTime}
                       onChange={(e) => setReminderTime(e.target.value)}
-                      className="pl-10"
+                      className={`pl-10 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                     />
                   </div>
                 </div>
@@ -225,8 +246,9 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
             )}
           </div>
 
+          {/* Tags Section */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
               <Tag className="inline h-4 w-4 mr-1" />
               Tags
             </label>
@@ -235,7 +257,7 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
                 placeholder="Add a tag..."
-                className="flex-1"
+                className={`flex-1 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
               />
               <Button type="button" onClick={handleAddTag} variant="outline">
@@ -251,8 +273,9 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
             </div>
           </div>
 
+          {/* Assign Section */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-slate-700'} mb-2`}>
               <User className="inline h-4 w-4 mr-1" />
               Assign to Team Members
             </label>
@@ -262,7 +285,7 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="Enter email address..."
-                className="flex-1"
+                className={`flex-1 ${isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : ''}`}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddEmail())}
               />
               <Button type="button" onClick={handleAddEmail} variant="outline">
@@ -278,7 +301,7 @@ export const TaskForm = ({ onSave, onClose, initialTask }: TaskFormProps) => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+          <div className={`flex justify-end gap-3 pt-4 border-t ${isDarkMode ? 'border-gray-700' : 'border-slate-200'}`}>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>

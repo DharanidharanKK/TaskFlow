@@ -10,6 +10,8 @@ import { AuthModal } from '@/components/AuthModal';
 import { ShareTaskModal } from '@/components/ShareTaskModal';
 import { SettingsModal } from '@/components/SettingsModal';
 import { FilterModal } from '@/components/FilterModal';
+import { AIChatAssistant } from '@/components/AIChatAssistant';
+import { VoiceCommand } from '@/components/VoiceCommand';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
@@ -25,6 +27,7 @@ interface Task {
   createdBy: string;
   createdAt: string;
   tags: string[];
+  attachmentUrl?: string;
   reminder?: {
     enabled: boolean;
     date: string;
@@ -95,37 +98,53 @@ const Index = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load user-specific tasks from localStorage when authenticated
+  // Load tasks from Supabase when authenticated
   useEffect(() => {
     if (isAuthenticated && currentUser) {
-      const userTasksKey = `tasks_${currentUser.id}`;
-      const savedTasks = localStorage.getItem(userTasksKey);
-      
-      if (savedTasks) {
-        try {
-          const parsedTasks = JSON.parse(savedTasks);
-          setTasks(parsedTasks);
-          setFilteredTasks(parsedTasks);
-        } catch (error) {
-          console.error('Error parsing saved tasks:', error);
-          setTasks([]);
-          setFilteredTasks([]);
-        }
-      } else {
-        // New user - start with empty task list
-        setTasks([]);
-        setFilteredTasks([]);
-      }
+      loadTasks();
     }
   }, [isAuthenticated, currentUser]);
 
-  // Save tasks to localStorage whenever tasks change
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      const userTasksKey = `tasks_${currentUser.id}`;
-      localStorage.setItem(userTasksKey, JSON.stringify(tasks));
+  const loadTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', currentUser?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedTasks = data.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        status: task.status,
+        priority: task.priority,
+        dueDate: task.due_date,
+        assignedTo: task.assigned_to || [],
+        createdBy: currentUser?.email || '',
+        createdAt: task.created_at,
+        tags: task.tags || [],
+        attachmentUrl: task.attachment_url,
+        reminder: task.reminder_time ? {
+          enabled: true,
+          date: task.reminder_time.split('T')[0],
+          time: task.reminder_time.split('T')[1]?.substring(0, 5) || '09:00'
+        } : undefined
+      }));
+
+      setTasks(formattedTasks);
+      setFilteredTasks(formattedTasks);
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      toast({
+        title: "Error loading tasks",
+        description: "Failed to load your tasks. Please try again.",
+        variant: "destructive"
+      });
     }
-  }, [tasks, isAuthenticated, currentUser]);
+  };
 
   // Filter and sort tasks based on search, active filter, and sort criteria
   useEffect(() => {
@@ -211,48 +230,69 @@ const Index = () => {
     setFilteredTasks(filtered);
   }, [tasks, searchQuery, activeFilter, sortBy, showCompleted]);
 
-  const handleCreateTask = (taskData: Omit<Task, 'id' | 'createdAt' | 'createdBy'>) => {
-    const newTask: Task = {
-      ...taskData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser?.email || 'user@example.com'
-    };
-    
-    setTasks(prev => [newTask, ...prev]);
-    setShowTaskForm(false);
-    
-    // Show reminder message if alarm is set
-    if (taskData.reminder?.enabled) {
-      const reminderDate = new Date(`${taskData.reminder.date}T${taskData.reminder.time}`);
+  const handleCreateTask = async (taskData: Omit<Task, 'id' | 'createdAt' | 'createdBy'>) => {
+    try {
+      const reminderTime = taskData.reminder?.enabled 
+        ? `${taskData.reminder.date}T${taskData.reminder.time}:00`
+        : null;
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: currentUser?.id,
+          title: taskData.title,
+          description: taskData.description,
+          status: taskData.status,
+          priority: taskData.priority,
+          due_date: taskData.dueDate,
+          assigned_to: taskData.assignedTo,
+          tags: taskData.tags,
+          attachment_url: taskData.attachmentUrl,
+          reminder_time: reminderTime
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await loadTasks(); // Reload tasks from database
+      setShowTaskForm(false);
+      
+      if (taskData.reminder?.enabled) {
+        const reminderDate = new Date(`${taskData.reminder.date}T${taskData.reminder.time}`);
+        toast({
+          title: "Task created successfully!",
+          description: `Alarm set for ${reminderDate.toLocaleDateString()} at ${reminderDate.toLocaleTimeString()}`,
+        });
+      } else {
+        toast({
+          title: "Task created successfully!",
+          description: "Your new task has been added to your list.",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
       toast({
-        title: "Task created successfully!",
-        description: `Alarm set for ${reminderDate.toLocaleDateString()} at ${reminderDate.toLocaleTimeString()}`,
-      });
-    } else {
-      toast({
-        title: "Task created successfully!",
-        description: "Your new task has been added to your list.",
+        title: "Error creating task",
+        description: "Failed to create task. Please try again.",
+        variant: "destructive"
       });
     }
   };
 
-  const handleQuickCreateTask = () => {
+  const handleQuickCreateTask = async () => {
     if (!quickTaskTitle.trim()) return;
     
-    const newTask: Task = {
-      id: Date.now().toString(),
+    await handleCreateTask({
       title: quickTaskTitle,
       description: '',
       status: 'todo',
       priority: 'medium',
       dueDate: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      createdBy: currentUser?.email || 'user@example.com',
-      tags: []
-    };
+      tags: [],
+      assignedTo: []
+    });
     
-    setTasks(prev => [newTask, ...prev]);
     setQuickTaskTitle('');
     toast({
       title: "Task created!",
@@ -260,82 +300,168 @@ const Index = () => {
     });
   };
 
-  const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId ? { ...task, ...updates } : task
-    ));
-    
-    // Show reminder message if alarm is updated
-    if (updates.reminder?.enabled) {
-      const reminderDate = new Date(`${updates.reminder.date}T${updates.reminder.time}`);
+  const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
+    try {
+      const reminderTime = updates.reminder?.enabled 
+        ? `${updates.reminder.date}T${updates.reminder.time}:00`
+        : null;
+
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: updates.title,
+          description: updates.description,
+          status: updates.status,
+          priority: updates.priority,
+          due_date: updates.dueDate,
+          assigned_to: updates.assignedTo,
+          tags: updates.tags,
+          attachment_url: updates.attachmentUrl,
+          reminder_time: reminderTime
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      await loadTasks(); // Reload tasks from database
+      
+      if (updates.reminder?.enabled) {
+        const reminderDate = new Date(`${updates.reminder.date}T${updates.reminder.time}`);
+        toast({
+          title: "Task updated!",
+          description: `Alarm set for ${reminderDate.toLocaleDateString()} at ${reminderDate.toLocaleTimeString()}`,
+        });
+      } else {
+        toast({
+          title: "Task updated!",
+          description: "Your changes have been saved.",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
       toast({
-        title: "Task updated!",
-        description: `Alarm set for ${reminderDate.toLocaleDateString()} at ${reminderDate.toLocaleTimeString()}`,
-      });
-    } else {
-      toast({
-        title: "Task updated!",
-        description: "Your changes have been saved.",
+        title: "Error updating task",
+        description: "Failed to update task. Please try again.",
+        variant: "destructive"
       });
     }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(task => task.id !== taskId));
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      await loadTasks(); // Reload tasks from database
+      toast({
+        title: "Task deleted",
+        description: "The task has been removed from your list.",
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        title: "Error deleting task",
+        description: "Failed to delete task. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleVoiceCommand = async (command: string) => {
+    console.log('Voice command received:', command);
+    
+    const lowerCommand = command.toLowerCase();
+    
+    // Create task command
+    if (lowerCommand.includes('create') && lowerCommand.includes('task')) {
+      const taskMatch = command.match(/create.*?task.*?to\s+(.*?)(?:\s+(?:by|on|due)\s+(.*?))?(?:\s+with\s+(high|medium|low)\s+priority)?/i);
+      if (taskMatch) {
+        const title = taskMatch[1].trim();
+        const dueDate = taskMatch[2] || 'today';
+        const priority = taskMatch[3] || 'medium';
+        
+        const taskData = {
+          title,
+          description: '',
+          priority: priority.toLowerCase() as 'low' | 'medium' | 'high',
+          dueDate: parseDateString(dueDate),
+          status: 'todo' as const,
+          tags: [],
+          assignedTo: []
+        };
+        
+        await handleCreateTask(taskData);
+        toast({
+          title: "Task created from voice command",
+          description: `"${title}" has been added to your tasks.`,
+        });
+        return;
+      }
+    }
+    
+    // Delete completed tasks
+    if (lowerCommand.includes('delete') && lowerCommand.includes('completed')) {
+      const completedTasks = tasks.filter(task => task.status === 'completed');
+      for (const task of completedTasks) {
+        await handleDeleteTask(task.id);
+      }
+      toast({
+        title: "Completed tasks deleted",
+        description: `${completedTasks.length} completed tasks have been removed.`,
+      });
+      return;
+    }
+    
+    // If it's a question, let the AI chat handle it
+    if (lowerCommand.includes('how') || lowerCommand.includes('what') || lowerCommand.includes('when') || lowerCommand.includes('?')) {
+      // This could trigger the AI chat with the voice command
+      toast({
+        title: "Voice question received",
+        description: "Check the AI assistant for the answer.",
+      });
+      return;
+    }
+    
     toast({
-      title: "Task deleted",
-      description: "The task has been removed from your list.",
+      title: "Voice command not recognized",
+      description: "Try commands like 'Create a task to...' or 'Delete all completed tasks'",
     });
   };
 
-  const handleShareTask = (taskId: string, emails: string[]) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      handleUpdateTask(taskId, { assignedTo: emails });
-      setShowShareModal(false);
+  const handleAITaskAction = async (action: string, taskData?: any) => {
+    if (action === 'create' && taskData) {
+      await handleCreateTask(taskData);
+    } else if (action === 'delete_completed') {
+      const completedTasks = tasks.filter(task => task.status === 'completed');
+      for (const task of completedTasks) {
+        await handleDeleteTask(task.id);
+      }
       toast({
-        title: "Task shared successfully!",
-        description: `Task shared with ${emails.join(', ')}`,
+        title: "Completed tasks deleted",
+        description: `${completedTasks.length} completed tasks have been removed.`,
       });
     }
   };
 
-  const handleFilterChange = (filter: string) => {
-    setActiveFilter(filter);
-    setShowMobileMenu(false);
-  };
-
-  const handleSortChange = (sort: string) => {
-    setSortBy(sort);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      toast({
-        title: "Logout Error",
-        description: "There was an error logging out. Please try again.",
-        variant: "destructive",
-      });
+  const parseDateString = (dateStr: string) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    if (dateStr.includes('today')) return today.toISOString().split('T')[0];
+    if (dateStr.includes('tomorrow')) return tomorrow.toISOString().split('T')[0];
+    
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
     }
+    
+    return today.toISOString().split('T')[0];
   };
-
-  const getTaskCounts = () => ({
-    all: tasks.length,
-    today: tasks.filter(t => t.dueDate === new Date().toISOString().split('T')[0]).length,
-    overdue: tasks.filter(t => t.dueDate < new Date().toISOString().split('T')[0] && t.status !== 'completed').length,
-    'high-priority': tasks.filter(t => t.priority === 'high').length,
-    'medium-priority': tasks.filter(t => t.priority === 'medium').length,
-    'low-priority': tasks.filter(t => t.priority === 'low').length,
-    shared: tasks.filter(t => t.assignedTo && t.assignedTo.length > 0).length,
-    completed: tasks.filter(t => t.status === 'completed').length
-  });
 
   // Show loading state while checking authentication
   if (authLoading) {
@@ -374,7 +500,7 @@ const Index = () => {
               </Button>
               
               <h1 className={`text-xl lg:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent`}>
-                TaskFlow
+                TaskFlow AI
               </h1>
               
               {/* Temporary indicator that new features are loaded */}
@@ -440,6 +566,9 @@ const Index = () => {
               >
                 <Settings className="h-4 w-4 lg:h-5 lg:w-5" />
               </Button>
+              
+              {/* Voice Command Button */}
+              <VoiceCommand onCommand={handleVoiceCommand} isDarkMode={isDarkMode} />
               
               <Button
                 onClick={() => setShowTaskForm(true)}
@@ -707,6 +836,7 @@ const Index = () => {
                       setSelectedTask(task);
                       setShowShareModal(true);
                     }}
+                    isDarkMode={isDarkMode}
                   />
                 ))
               )}
@@ -737,11 +867,18 @@ const Index = () => {
         </div>
       </div>
 
+      {/* AI Chat Assistant */}
+      <AIChatAssistant 
+        onTaskAction={handleAITaskAction}
+        isDarkMode={isDarkMode}
+      />
+
       {/* Modals */}
       {showTaskForm && (
         <TaskForm
           onSave={handleCreateTask}
           onClose={() => setShowTaskForm(false)}
+          isDarkMode={isDarkMode}
         />
       )}
 

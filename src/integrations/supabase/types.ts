@@ -9,7 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      tasks: {
+        Row: {
+          attachment_url: string | null
+          created_at: string | null
+          created_by_ai: boolean | null
+          description: string | null
+          due_date: string | null
+          id: string
+          owner_id: string | null
+          priority: string | null
+          reminder_time: string | null
+          status: string | null
+          title: string | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string | null
+          created_by_ai?: boolean | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          owner_id?: string | null
+          priority?: string | null
+          reminder_time?: string | null
+          status?: string | null
+          title?: string | null
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string | null
+          created_by_ai?: boolean | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          owner_id?: string | null
+          priority?: string | null
+          reminder_time?: string | null
+          status?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
