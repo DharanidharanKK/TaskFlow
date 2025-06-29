@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Plus, Search, Bell, Settings, Share2, Menu, X, Clock, Sun, Moon, Lock, LogOut, Filter, Calendar, AlertTriangle, CheckCircle, List, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -110,22 +111,22 @@ const Index = () => {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('user_id', currentUser?.id)
+        .eq('owner_id', currentUser?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedTasks = data.map(task => ({
+      const formattedTasks: Task[] = data.map(task => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
-        status: task.status,
-        priority: task.priority,
+        status: task.status as 'todo' | 'in-progress' | 'completed',
+        priority: task.priority as 'low' | 'medium' | 'high',
         dueDate: task.due_date,
-        assignedTo: task.assigned_to || [],
+        assignedTo: [],
         createdBy: currentUser?.email || '',
         createdAt: task.created_at,
-        tags: task.tags || [],
+        tags: [],
         attachmentUrl: task.attachment_url,
         reminder: task.reminder_time ? {
           enabled: true,
@@ -144,6 +145,22 @@ const Index = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // Utility function to get task counts for filters
+  const getTaskCounts = () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    return {
+      all: tasks.length,
+      today: tasks.filter(task => task.dueDate === today).length,
+      overdue: tasks.filter(task => task.dueDate < today && task.status !== 'completed').length,
+      'high-priority': tasks.filter(task => task.priority === 'high').length,
+      'medium-priority': tasks.filter(task => task.priority === 'medium').length,
+      'low-priority': tasks.filter(task => task.priority === 'low').length,
+      shared: tasks.filter(task => task.assignedTo && task.assignedTo.length > 0).length,
+      completed: tasks.filter(task => task.status === 'completed').length,
+    };
   };
 
   // Filter and sort tasks based on search, active filter, and sort criteria
@@ -239,14 +256,12 @@ const Index = () => {
       const { data, error } = await supabase
         .from('tasks')
         .insert({
-          user_id: currentUser?.id,
+          owner_id: currentUser?.id,
           title: taskData.title,
           description: taskData.description,
           status: taskData.status,
           priority: taskData.priority,
           due_date: taskData.dueDate,
-          assigned_to: taskData.assignedTo,
-          tags: taskData.tags,
           attachment_url: taskData.attachmentUrl,
           reminder_time: reminderTime
         })
@@ -314,8 +329,6 @@ const Index = () => {
           status: updates.status,
           priority: updates.priority,
           due_date: updates.dueDate,
-          assigned_to: updates.assignedTo,
-          tags: updates.tags,
           attachment_url: updates.attachmentUrl,
           reminder_time: reminderTime
         })
@@ -366,6 +379,37 @@ const Index = () => {
       toast({
         title: "Error deleting task",
         description: "Failed to delete task. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleFilterChange = (filterId: string) => {
+    setActiveFilter(filterId);
+    setShowMobileMenu(false);
+  };
+
+  const handleSortChange = (sortId: string) => {
+    setSortBy(sortId);
+  };
+
+  const handleShareTask = (task: Task) => {
+    // Implementation for task sharing
+    console.log('Sharing task:', task);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been signed out of your account.",
+      });
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: "Error logging out",
+        description: "Failed to log out. Please try again.",
         variant: "destructive"
       });
     }
