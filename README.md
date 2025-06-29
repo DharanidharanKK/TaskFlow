@@ -20,11 +20,11 @@ A full-stack productivity application where users can manage their personal and 
 ---
 
  How It looks(Lite mode)
-![lite_mode](lite_mode.png)
+![lite_mode](lite.png)
 
 
  How It looks(Dark mode)
-![lite_mode](dark_mode.png)
+![lite_mode](dark.png)
 
 
 ## 🛠️ Tech Stack
