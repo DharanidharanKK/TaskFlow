@@ -85,6 +85,8 @@ lite mode
 - 🔗 Live: [LIVE_LINK](https://your-app.vercel.app)
 - 🔗 GitHub: [GITHUB_REPO](https://github.com/your-username/todo-ai)
 
+“This project is a part of a hackathon run by 
+https://www.katomaran.com ”
 ---
 
 ## 🏁 Setup Instructions
@@ -93,6 +95,3 @@ lite mode
 ```bash
 git clone https://github.com/your-username/todo-ai.git
 
-
-“This project is a part of a hackathon run by 
-https://www.katomaran.com ”
