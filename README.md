@@ -83,7 +83,7 @@ lite mode
 ## 📦 Deployment
 
 - 🔗 Live: [LIVE_LINK](https://your-app.vercel.app)
-- 🔗 GitHub: [GITHUB_REPO](https://github.com/your-username/todo-ai)
+- 🔗 GitHub: [GITHUB_REPO](https://github.com/DharanidharanKK/TaskFlow)
 
 “This project is a part of a hackathon run by 
 https://www.katomaran.com ”
