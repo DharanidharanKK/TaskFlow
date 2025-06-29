@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Plus, Search, Bell, Settings, Share2, Menu, X, Clock, Sun, Moon, Lock, LogOut, Filter, Calendar, AlertTriangle, CheckCircle, List, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -393,9 +392,15 @@ const Index = () => {
     setSortBy(sortId);
   };
 
-  const handleShareTask = (task: Task) => {
+  const handleShareTask = (taskId: string, emails: string[]) => {
     // Implementation for task sharing
-    console.log('Sharing task:', task);
+    console.log('Sharing task:', taskId, 'with emails:', emails);
+    toast({
+      title: "Task shared successfully!",
+      description: `Task has been shared with ${emails.length} people.`,
+    });
+    setShowShareModal(false);
+    setSelectedTask(null);
   };
 
   const handleLogout = async () => {
