@@ -93,9 +93,6 @@ lite mode
 - 🔗 Live: [LIVE_LINK](https://task-flow-seven-hazel.vercel.app/)
 - 🔗 GitHub: [GITHUB_REPO](https://github.com/DharanidharanKK/TaskFlow)
 
-“This project is a part of a hackathon run by 
-https://www.katomaran.com ”
----
 
 ## 🏁 Setup Instructions
 
